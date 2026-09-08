@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>助聽器 Hearing Aid</title>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --accent:#38bdf8; --accent2:#22c55e;
+    --danger:#ef4444; --text:#f1f5f9; --muted:#94a3b8;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:linear-gradient(160deg,#0f172a,#1e293b 60%,#0f172a);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei",Arial,sans-serif;
+    color:var(--text); display:flex; justify-content:center; padding:20px;
+  }
+  .app{width:100%; max-width:480px;}
+  h1{font-size:1.5rem; text-align:center; margin:4px 0 2px;}
+  .sub{text-align:center; color:var(--muted); font-size:0.9rem; margin-bottom:18px;}
+
+  .power-wrap{display:flex; justify-content:center; margin:18px 0 22px;}
+  .power-btn{
+    width:150px; height:150px; border-radius:50%; border:none; cursor:pointer;
+    background:radial-gradient(circle at 35% 30%, #334155, #0f172a);
+    box-shadow:0 0 0 6px #1e293b, 0 8px 24px rgba(0,0,0,.5);
+    color:var(--text); font-size:1.1rem; font-weight:600; letter-spacing:1px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+    transition:transform .15s ease, box-shadow .3s ease;
+  }
+  .power-btn:active{transform:scale(0.96);}
+  .power-btn.on{
+    background:radial-gradient(circle at 35% 30%, #14532d, #052e14);
+    box-shadow:0 0 0 6px #14532d, 0 0 40px 6px rgba(34,197,94,.55);
+  }
+  .power-icon{width:46px; height:46px;}
+
+  .card{
+    background:var(--card); border-radius:16px; padding:18px 20px; margin-bottom:16px;
+    box-shadow:0 4px 14px rgba(0,0,0,.35);
+  }
+  .card h2{margin:0 0 14px; font-size:1rem; color:var(--accent); display:flex; align-items:center; gap:8px;}
+  .row{display:flex; align-items:center; gap:12px; margin-bottom:14px;}
+  .row:last-child{margin-bottom:0;}
+  .row label{flex:0 0 92px; font-size:0.92rem; color:var(--muted);}
+  .row input[type=range]{flex:1; accent-color:var(--accent); height:6px;}
+  .row .val{flex:0 0 54px; text-align:right; font-variant-numeric:tabular-nums; font-size:0.9rem;}
+
+  .preset-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+  .preset-btn{
+    padding:10px 4px; border-radius:10px; border:1px solid #334155; background:#0f172a;
+    color:var(--text); font-size:0.85rem; cursor:pointer;
+  }
+  .preset-btn.active{border-color:var(--accent); background:#0c2a3a; color:var(--accent);}
+
+  .meter{
+    height:14px; border-radius:8px; background:#0f172a; overflow:hidden; position:relative; margin-top:6px;
+  }
+  .meter-fill{height:100%; width:0%; background:linear-gradient(90deg,#22c55e,#facc15,#ef4444); transition:width .06s linear;}
+
+  .status{
+    text-align:center; font-size:0.85rem; color:var(--muted); margin-bottom:10px; min-height:20px;
+  }
+  .status.err{color:var(--danger);}
+  .status.ok{color:var(--accent2);}
+
+  .toggle-row{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+  .switch{position:relative; width:46px; height:26px; flex:0 0 auto;}
+  .switch input{opacity:0; width:0; height:0;}
+  .slider-tog{position:absolute; cursor:pointer; inset:0; background:#334155; border-radius:26px; transition:.2s;}
+  .slider-tog:before{content:""; position:absolute; height:20px; width:20px; left:3px; bottom:3px; background:#f1f5f9; border-radius:50%; transition:.2s;}
+  .switch input:checked + .slider-tog{background:var(--accent2);}
+  .switch input:checked + .slider-tog:before{transform:translateX(20px);}
+
+  .footnote{text-align:center; color:var(--muted); font-size:0.75rem; margin-top:8px; line-height:1.5;}
+  select{
+    background:#0f172a; color:var(--text); border:1px solid #334155; border-radius:8px;
+    padding:8px 10px; font-size:0.9rem; width:100%;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>🔊 簡易助聽器</h1>
+  <div class="sub">Web 助聽器 · 免安裝 · 建議配合耳機使用</div>
+
+  <div class="power-wrap">
+    <button id="powerBtn" class="power-btn">
+      <svg class="power-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/>
+      </svg>
+      <span id="powerLabel">開啟</span>
+    </button>
+  </div>
+
+  <div class="status" id="status">請按上方按鈕開始，並允許使用麥克風</div>
+
+  <div class="card">
+    <h2>🎚️ 音量放大 Amplification</h2>
+    <div class="row">
+      <label>放大倍數</label>
+      <input type="range" id="gainSlider" min="1" max="6" step="0.1" value="2">
+      <div class="val" id="gainVal">2.0x</div>
+    </div>
+    <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
+  </div>
+
+  <div class="card">
+    <h2>🎛️ 聲音模式 Sound Profile</h2>
+    <div class="preset-grid">
+      <button class="preset-btn active" data-preset="flat">一般</button>
+      <button class="preset-btn" data-preset="speech">對話增強</button>
+      <button class="preset-btn" data-preset="high">高頻加強</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>⚙️ 進階設定 Advanced</h2>
+    <div class="toggle-row">
+      <span style="font-size:0.92rem;">降噪 (減少低頻噪音)</span>
+      <label class="switch">
+        <input type="checkbox" id="noiseGate">
+        <span class="slider-tog"></span>
+      </label>
+    </div>
+    <div class="toggle-row">
+      <span style="font-size:0.92rem;">回音抑制 (較安靜環境建議關閉)</span>
+      <label class="switch">
+        <input type="checkbox" id="echoCancel">
+        <span class="slider-tog"></span>
+      </label>
+    </div>
+    <div class="row" style="margin-top:6px;">
+      <label>輸出裝置</label>
+      <select id="outputSelect"><option value="">系統預設</option></select>
+    </div>
+  </div>
+
+  <div class="footnote">
+    本工具僅供日常輔助聆聽用途，並非醫療器材，不能取代專業助聽器或醫生診斷。<br>
+    如有聽力問題，請諮詢耳科醫生或聽力學家。<br>
+    建議配戴耳機使用，並將音量調至舒適水平，避免長時間過大音量。
+  </div>
+</div>
+
+<script>
+(function(){
+  let audioCtx = null;
+  let micStream = null;
+  let sourceNode = null;
+  let gainNode = null;
+  let lowShelf, midPeak, highShelf;
+  let analyser, dataArray;
+  let running = false;
+  let meterRAF = null;
+
+  const powerBtn = document.getElementById('powerBtn');
+  const powerLabel = document.getElementById('powerLabel');
+  const statusEl = document.getElementById('status');
+  const gainSlider = document.getElementById('gainSlider');
+  const gainVal = document.getElementById('gainVal');
+  const meterFill = document.getElementById('meterFill');
+  const noiseGateToggle = document.getElementById('noiseGate');
+  const echoCancelToggle = document.getElementById('echoCancel');
+  const outputSelect = document.getElementById('outputSelect');
+  const presetBtns = document.querySelectorAll('.preset-btn');
+
+  let currentPreset = 'flat';
+
+  function setStatus(msg, type){
+    statusEl.textContent = msg;
+    statusEl.className = 'status' + (type ? ' ' + type : '');
+  }
+
+  async function listOutputDevices(){
+    try{
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      outputSelect.innerHTML = '<option value="">系統預設</option>';
+      devices.filter(d => d.kind === 'audiooutput').forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d.deviceId;
+        opt.textContent = d.label || ('輸出裝置 ' + d.deviceId.slice(0,6));
+        outputSelect.appendChild(opt);
+      });
+    }catch(e){ /* ignore */ }
+  }
+
+  async function startAudio(){
+    try{
+      setStatus('請求麥克風權限中...', '');
+      const constraints = {
+        audio: {
+          echoCancellation: echoCancelToggle.checked,
+          noiseSuppression: false,
+          autoGainControl: false,
+          latency: 0
+        }
+      };
+      micStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 0, sampleRate: 48000 });
+      await audioCtx.resume();
+
+      sourceNode = audioCtx.createMediaStreamSource(micStream);
+
+      lowShelf = audioCtx.createBiquadFilter();
+      lowShelf.type = 'lowshelf';
+      lowShelf.frequency.value = 300;
+      lowShelf.gain.value = 0;
+
+      midPeak = audioCtx.createBiquadFilter();
+      midPeak.type = 'peaking';
+      midPeak.frequency.value = 2000;
+      midPeak.Q.value = 1;
+      midPeak.gain.value = 0;
+
+      highShelf = audioCtx.createBiquadFilter();
+      highShelf.type = 'highshelf';
+      highShelf.frequency.value = 4000;
+      highShelf.gain.value = 0;
+
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = parseFloat(gainSlider.value);
+
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      sourceNode.connect(lowShelf);
+      lowShelf.connect(midPeak);
+      midPeak.connect(highShelf);
+      highShelf.connect(gainNode);
+      gainNode.connect(analyser);
+      analyser.connect(audioCtx.destination);
+
+      applyPreset(currentPreset);
+
+      running = true;
+      powerBtn.classList.add('on');
+      powerLabel.textContent = '關閉';
+      setStatus('運作中 — 正在放大您週遭的聲音', 'ok');
+      updateMeter();
+      await listOutputDevices();
+    }catch(err){
+      console.error(err);
+      setStatus('無法取用麥克風：' + (err.message || err.name) + '（請檢查瀏覽器權限設定）', 'err');
+      running = false;
+      powerBtn.classList.remove('on');
+      powerLabel.textContent = '開啟';
+    }
+  }
+
+  function stopAudio(){
+    running = false;
+    if (meterRAF) cancelAnimationFrame(meterRAF);
+    meterFill.style.width = '0%';
+    if (micStream){
+      micStream.getTracks().forEach(t => t.stop());
+      micStream = null;
+    }
+    if (audioCtx){
+      audioCtx.close();
+      audioCtx = null;
+    }
+    powerBtn.classList.remove('on');
+    powerLabel.textContent = '開啟';
+    setStatus('已關閉。請按上方按鈕重新開始。', '');
+  }
+
+  function updateMeter(){
+    if (!running || !analyser) return;
+    analyser.getByteFrequencyData(dataArray);
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+    const avg = sum / dataArray.length;
+    const pct = Math.min(100, (avg / 180) * 100);
+    meterFill.style.width = pct + '%';
+    meterRAF = requestAnimationFrame(updateMeter);
+  }
+
+  powerBtn.addEventListener('click', () => {
+    if (running) stopAudio(); else startAudio();
+  });
+
+  gainSlider.addEventListener('input', () => {
+    const v = parseFloat(gainSlider.value);
+    gainVal.textContent = v.toFixed(1) + 'x';
+    if (gainNode) gainNode.gain.setTargetAtTime(v, audioCtx.currentTime, 0.02);
+  });
+  gainVal.textContent = parseFloat(gainSlider.value).toFixed(1) + 'x';
+
+  function applyPreset(name){
+    currentPreset = name;
+    presetBtns.forEach(b => b.classList.toggle('active', b.dataset.preset === name));
+    if (!lowShelf) return;
+    const t = audioCtx.currentTime;
+    if (name === 'flat'){
+      lowShelf.gain.setTargetAtTime(0, t, 0.05);
+      midPeak.gain.setTargetAtTime(0, t, 0.05);
+      highShelf.gain.setTargetAtTime(0, t, 0.05);
+    } else if (name === 'speech'){
+      lowShelf.gain.setTargetAtTime(-4, t, 0.05);
+      midPeak.gain.setTargetAtTime(8, t, 0.05);
+      highShelf.gain.setTargetAtTime(3, t, 0.05);
+    } else if (name === 'high'){
+      lowShelf.gain.setTargetAtTime(-2, t, 0.05);
+      midPeak.gain.setTargetAtTime(4, t, 0.05);
+      highShelf.gain.setTargetAtTime(9, t, 0.05);
+    }
+  }
+
+  presetBtns.forEach(btn => {
+    btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+  });
+
+  noiseGateToggle.addEventListener('change', () => {
+    if (!lowShelf) return;
+    const t = audioCtx.currentTime;
+    if (noiseGateToggle.checked){
+      lowShelf.frequency.setTargetAtTime(500, t, 0.05);
+      lowShelf.gain.setTargetAtTime((lowShelf.gain.value < -6 ? lowShelf.gain.value : -10), t, 0.05);
+    } else {
+      applyPreset(currentPreset);
+    }
+  });
+
+  echoCancelToggle.addEventListener('change', () => {
+    if (running){
+      setStatus('設定已變更，正在重新啟動...', '');
+      stopAudio();
+      setTimeout(startAudio, 300);
+    }
+  });
+
+  outputSelect.addEventListener('change', async () => {
+    if (audioCtx && typeof audioCtx.setSinkId === 'function'){
+      try{ await audioCtx.setSinkId(outputSelect.value); }catch(e){ console.warn('setSinkId not fully supported', e); }
+    }
+  });
+})();
+</script>
+</body>
+</html>
