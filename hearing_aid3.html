@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>簡易助聽器 Hearing Aid</title>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --card2:#172033; --accent:#38bdf8; --accent2:#22c55e;
+    --danger:#ef4444; --warn:#facc15; --text:#f1f5f9; --muted:#94a3b8; --border:#334155;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0; min-height:100vh; background:linear-gradient(160deg,#0f172a,#1e293b 60%,#0f172a);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei",Arial,sans-serif;
+    color:var(--text); display:flex; justify-content:center; padding:20px;
+    padding-bottom:calc(20px + env(safe-area-inset-bottom));
+    padding-top:calc(20px + env(safe-area-inset-top));
+  }
+  .app{width:100%; max-width:480px;}
+  h1{font-size:1.55rem; text-align:center; margin:4px 0 3px;}
+  .sub{text-align:center; color:var(--muted); font-size:0.9rem; margin-bottom:12px;}
+
+  .power-wrap{display:flex; justify-content:center; margin:18px 0 20px;}
+  .power-btn{
+    width:150px; height:150px; border-radius:50%; border:none; cursor:pointer;
+    background:radial-gradient(circle at 35% 30%, #334155, #0f172a);
+    box-shadow:0 0 0 6px #1e293b, 0 8px 24px rgba(0,0,0,.5);
+    color:var(--text); font-size:1.08rem; font-weight:600; letter-spacing:1px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+    transition:transform .15s ease, box-shadow .3s ease;
+    -webkit-appearance:none; appearance:none;
+  }
+  .power-btn:active{transform:scale(0.96);}
+  .power-btn:focus-visible{outline:4px solid var(--accent); outline-offset:5px;}
+  .power-btn.on{
+    background:radial-gradient(circle at 35% 30%, #14532d, #052e14);
+    box-shadow:0 0 0 6px #14532d, 0 0 40px 6px rgba(34,197,94,.55);
+  }
+  .power-icon{width:46px; height:46px;}
+
+  .card{
+    background:var(--card); border-radius:16px; padding:18px 20px; margin-bottom:16px;
+    box-shadow:0 4px 14px rgba(0,0,0,.35);
+  }
+  .card h2{margin:0 0 14px; font-size:1rem; color:var(--accent); display:flex; align-items:center; gap:8px;}
+  .row{display:flex; align-items:center; gap:12px; margin-bottom:14px;}
+  .row:last-child{margin-bottom:0;}
+  .row label{flex:0 0 92px; font-size:0.92rem; color:var(--muted);}
+  .row input[type=range]{flex:1; accent-color:var(--accent); height:8px; min-height:44px;}
+  .row .val{flex:0 0 54px; text-align:right; font-variant-numeric:tabular-nums; font-size:0.9rem;}
+  .row.select-row{align-items:flex-start;}
+  .row.select-row label{padding-top:10px;}
+  .row select{flex:1;}
+
+  .step-btns{display:flex; gap:6px;}
+  .step-btn{
+    width:44px; height:44px; border-radius:10px; border:1px solid var(--border); background:#0f172a;
+    color:var(--text); font-size:1.2rem; cursor:pointer; -webkit-appearance:none; appearance:none;
+  }
+  .step-btn:focus-visible{outline:3px solid var(--accent); outline-offset:2px;}
+
+  .preset-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+  .preset-btn{
+    padding:10px 4px; border-radius:10px; border:1px solid var(--border); background:#0f172a;
+    color:var(--text); font-size:0.85rem; cursor:pointer; -webkit-appearance:none; appearance:none;
+    min-height:48px;
+  }
+  .preset-btn.active{border-color:var(--accent); background:#0c2a3a; color:var(--accent); border-width:2px;}
+  .preset-btn.active::before{content:"✓ ";}
+  .preset-btn:focus-visible, .switch input:focus-visible + .slider-tog, select:focus-visible{
+    outline:4px solid var(--accent); outline-offset:3px;
+  }
+
+  .meter{
+    height:14px; border-radius:8px; background:#0f172a; overflow:hidden; position:relative; margin-top:6px;
+  }
+  .meter-fill{height:100%; width:0%; background:linear-gradient(90deg,#22c55e,#facc15,#ef4444); transition:width .06s linear;}
+
+  .status{
+    text-align:center; font-size:0.92rem; color:var(--muted); margin-bottom:10px; min-height:20px; line-height:1.5;
+  }
+  .status.err{color:var(--danger); font-weight:600;}
+  .status.ok{color:var(--accent2); font-weight:600;}
+  .status.warn{color:var(--warn);}
+
+  .toggle-row{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; gap:12px;}
+  .toggle-row .txt{font-size:0.92rem;}
+  .toggle-row .state-txt{font-size:0.78rem; color:var(--muted); display:block;}
+  .switch{position:relative; width:52px; height:30px; flex:0 0 auto;}
+  .switch input{opacity:0; width:0; height:0;}
+  .slider-tog{position:absolute; cursor:pointer; inset:0; background:#334155; border-radius:30px; transition:.2s;}
+  .slider-tog:before{content:""; position:absolute; height:24px; width:24px; left:3px; bottom:3px; background:#f1f5f9; border-radius:50%; transition:.2s;}
+  .switch input:checked + .slider-tog{background:var(--accent2);}
+  .switch input:checked + .slider-tog:before{transform:translateX(22px);}
+
+  select{
+    background:#0f172a; color:var(--text); border:1px solid var(--border); border-radius:8px;
+    padding:9px 10px; font-size:0.86rem; width:100%; min-height:44px;
+  }
+  select:disabled{opacity:.55; cursor:not-allowed;}
+  .device-hint{
+    border-top:1px solid var(--border); margin-top:12px; padding-top:12px;
+    font-size:0.78rem; color:var(--muted); line-height:1.55;
+  }
+  .device-hint.warn{color:var(--warn);}
+  .refresh-devices{
+    width:100%; margin-top:10px; min-height:42px; border-radius:8px; background:#0f172a;
+    border:1px solid var(--border); color:var(--text); cursor:pointer; font-size:.84rem;
+  }
+  .refresh-devices:active{transform:scale(.99);}
+
+  .footnote{text-align:center; color:var(--muted); font-size:0.75rem; margin-top:8px; line-height:1.5;}
+  .env-box{
+    background:#1e293b; border:1px solid var(--border); border-radius:12px; padding:9px 12px;
+    font-size:0.72rem; color:var(--muted); margin-bottom:14px; word-break:break-all;
+  }
+  .sr-only{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
+    clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+  a.skip-link{
+    position:absolute; left:-9999px; top:0; background:var(--accent); color:#0f172a;
+    padding:12px 18px; border-radius:8px; z-index:100; font-weight:700; font-size:1rem;
+  }
+  a.skip-link:focus{left:12px; top:12px;}
+
+  @media (prefers-reduced-motion: reduce){*{transition:none !important;}}
+</style>
+</head>
+<body>
+<a href="#mainControls" class="skip-link">跳到開關按鈕 Skip to power button</a>
+<div class="app">
+  <h1>🔊 簡易助聽器</h1>
+  <div class="sub">手機收音 · 耳機播放 · 建議配合耳機使用</div>
+
+  <div class="env-box" id="envBox" role="status" aria-live="polite"></div>
+
+  <div class="power-wrap" id="mainControls">
+    <button id="powerBtn" class="power-btn" type="button"
+            role="switch" aria-checked="false" aria-label="開啟助聽器放大功能，目前狀態：關閉">
+      <svg class="power-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/>
+      </svg>
+      <span id="powerLabel">開啟</span>
+    </button>
+  </div>
+
+  <div class="status" id="status" role="status" aria-live="polite">請先選擇裝置（如需要），然後按上方按鈕開始</div>
+  <div class="status warn" id="iosNote" role="note" style="display:none;">
+    偵測到 iPhone/iPad：請先連接耳機，並在控制中心選擇耳機作為輸出裝置。iPhone 不支援由網頁指定播放裝置。
+  </div>
+
+  <div class="card" role="group" aria-labelledby="deviceHeading">
+    <h2 id="deviceHeading">🎧 收音與播放裝置</h2>
+    <div class="row select-row">
+      <label for="inputDeviceSelect">收音裝置</label>
+      <select id="inputDeviceSelect" aria-label="選擇收音麥克風裝置">
+        <option value="">系統預設麥克風</option>
+      </select>
+    </div>
+    <div class="row select-row">
+      <label for="outputDeviceSelect">播放裝置</label>
+      <select id="outputDeviceSelect" aria-label="選擇播放耳機或喇叭裝置">
+        <option value="">系統預設輸出</option>
+      </select>
+    </div>
+    <div class="device-hint" id="deviceHint" role="status" aria-live="polite">
+      開啟助聽器並允許麥克風後，會顯示可用裝置的名稱。
+    </div>
+    <button id="refreshDevicesBtn" class="refresh-devices" type="button">⟳ 重新整理裝置清單</button>
+  </div>
+
+  <div class="card" role="group" aria-labelledby="ampHeading">
+    <h2 id="ampHeading">🎚️ 音量放大</h2>
+    <div class="row">
+      <label for="gainSlider">放大倍數</label>
+      <input type="range" id="gainSlider" min="1" max="6" step="0.1" value="2"
+             aria-label="放大倍數，範圍從 1 倍到 6 倍" aria-valuemin="1" aria-valuemax="6" aria-valuenow="2" aria-valuetext="2.0 倍">
+      <div class="val" id="gainVal" aria-hidden="true">2.0x</div>
+    </div>
+    <div class="row" style="margin-top:-4px;">
+      <span class="sr-only">用左右方向鍵或以下按鈕，以 0.5 倍為單位調整</span>
+      <div class="step-btns" role="group" aria-label="快速調整放大倍數">
+        <button type="button" class="step-btn" id="gainDown" aria-label="減少放大倍數，每次減少 0.5 倍">−</button>
+        <button type="button" class="step-btn" id="gainUp" aria-label="增加放大倍數，每次增加 0.5 倍">＋</button>
+      </div>
+    </div>
+    <div class="meter" role="progressbar" aria-label="即時收音音量指示" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="meterBar">
+      <div class="meter-fill" id="meterFill"></div>
+    </div>
+  </div>
+
+  <div class="card" role="group" aria-labelledby="presetHeading">
+    <h2 id="presetHeading">🎛️ 聲音模式</h2>
+    <div class="preset-grid" role="radiogroup" aria-label="聲音模式選擇，共三種，使用左右方向鍵切換">
+      <button class="preset-btn active" type="button" role="radio" aria-checked="true" data-preset="flat">一般</button>
+      <button class="preset-btn" type="button" role="radio" aria-checked="false" data-preset="speech">對話增強</button>
+      <button class="preset-btn" type="button" role="radio" aria-checked="false" data-preset="high">高頻加強</button>
+    </div>
+  </div>
+
+  <div class="card" role="group" aria-labelledby="advHeading">
+    <h2 id="advHeading">⚙️ 進階設定</h2>
+    <div class="toggle-row">
+      <span>
+        <span class="txt" id="noiseGateLabel">降噪（減少低頻噪音）</span>
+        <span class="state-txt" id="noiseGateState">目前：關閉</span>
+      </span>
+      <label class="switch">
+        <input type="checkbox" id="noiseGate" role="switch" aria-labelledby="noiseGateLabel" aria-describedby="noiseGateState">
+        <span class="slider-tog" aria-hidden="true"></span>
+      </label>
+    </div>
+    <div class="toggle-row">
+      <span>
+        <span class="txt" id="echoCancelLabel">回音抑制（安靜環境建議關閉）</span>
+        <span class="state-txt" id="echoCancelState">目前：關閉</span>
+      </span>
+      <label class="switch">
+        <input type="checkbox" id="echoCancel" role="switch" aria-labelledby="echoCancelLabel" aria-describedby="echoCancelState">
+        <span class="slider-tog" aria-hidden="true"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="footnote">
+    本工具僅供日常輔助聆聽用途，並非醫療器材，不能取代專業助聽器或醫生診斷。<br>
+    建議配戴耳機使用，並將音量調至舒適水平，避免長時間過大音量。
+  </div>
+
+  <div id="srAnnounce" class="sr-only" role="status" aria-live="assertive"></div>
+</div>
+
+<script>
+(function(){
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  let audioCtx = null;
+  let micStream = null;
+  let sourceNode = null;
+  let gainNode = null;
+  let lowShelf, midPeak, highShelf;
+  let analyser, dataArray;
+  let running = false;
+  let meterRAF = null;
+  let lastAnnouncedPct = -1;
+  let selectedInputDeviceId = '';
+  let selectedOutputDeviceId = '';
+  let currentPreset = 'flat';
+
+  const powerBtn = document.getElementById('powerBtn');
+  const powerLabel = document.getElementById('powerLabel');
+  const statusEl = document.getElementById('status');
+  const iosNote = document.getElementById('iosNote');
+  const gainSlider = document.getElementById('gainSlider');
+  const gainVal = document.getElementById('gainVal');
+  const gainUp = document.getElementById('gainUp');
+  const gainDown = document.getElementById('gainDown');
+  const meterFill = document.getElementById('meterFill');
+  const meterBar = document.getElementById('meterBar');
+  const noiseGateToggle = document.getElementById('noiseGate');
+  const echoCancelToggle = document.getElementById('echoCancel');
+  const noiseGateState = document.getElementById('noiseGateState');
+  const echoCancelState = document.getElementById('echoCancelState');
+  const presetBtns = document.querySelectorAll('.preset-btn');
+  const envBox = document.getElementById('envBox');
+  const srAnnounce = document.getElementById('srAnnounce');
+  const inputDeviceSelect = document.getElementById('inputDeviceSelect');
+  const outputDeviceSelect = document.getElementById('outputDeviceSelect');
+  const deviceHint = document.getElementById('deviceHint');
+  const refreshDevicesBtn = document.getElementById('refreshDevicesBtn');
+
+  function announce(msg){
+    srAnnounce.textContent = '';
+    requestAnimationFrame(() => { srAnnounce.textContent = msg; });
+  }
+
+  function setStatus(msg, type){
+    statusEl.textContent = msg;
+    statusEl.className = 'status' + (type ? ' ' + type : '');
+  }
+
+  function hasOutputSelectionSupport(){
+    return !!(window.AudioContext && AudioContext.prototype && typeof AudioContext.prototype.setSinkId === 'function');
+  }
+
+  function setDeviceHint(msg, isWarning){
+    deviceHint.textContent = msg;
+    deviceHint.className = 'device-hint' + (isWarning ? ' warn' : '');
+  }
+
+  function safeLabel(device, index, kind){
+    if (device.label) return device.label;
+    const kindText = kind === 'audioinput' ? '麥克風' : '耳機／喇叭';
+    return kindText + ' ' + (index + 1);
+  }
+
+  async function refreshDeviceLists(){
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices){
+      inputDeviceSelect.disabled = true;
+      outputDeviceSelect.disabled = true;
+      setDeviceHint('此瀏覽器不支援列出音訊裝置。', true);
+      return;
+    }
+
+    try{
+      const previousInput = selectedInputDeviceId || inputDeviceSelect.value;
+      const previousOutput = selectedOutputDeviceId || outputDeviceSelect.value;
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const inputs = devices.filter(d => d.kind === 'audioinput');
+      const outputs = devices.filter(d => d.kind === 'audiooutput');
+
+      inputDeviceSelect.innerHTML = '<option value="">系統預設麥克風</option>';
+      inputs.forEach((device, index) => {
+        const option = document.createElement('option');
+        option.value = device.deviceId;
+        option.textContent = safeLabel(device, index, 'audioinput');
+        inputDeviceSelect.appendChild(option);
+      });
+      inputDeviceSelect.value = Array.from(inputDeviceSelect.options).some(o => o.value === previousInput) ? previousInput : '';
+      selectedInputDeviceId = inputDeviceSelect.value;
+
+      outputDeviceSelect.innerHTML = '<option value="">系統預設輸出</option>';
+      outputs.forEach((device, index) => {
+        const option = document.createElement('option');
+        option.value = device.deviceId;
+        option.textContent = safeLabel(device, index, 'audiooutput');
+        outputDeviceSelect.appendChild(option);
+      });
+      outputDeviceSelect.value = Array.from(outputDeviceSelect.options).some(o => o.value === previousOutput) ? previousOutput : '';
+      selectedOutputDeviceId = outputDeviceSelect.value;
+
+      if (!hasOutputSelectionSupport()){
+        outputDeviceSelect.disabled = true;
+        if (isIOS){
+          setDeviceHint('iPhone/iPad 不支援由網頁選擇播放裝置。請先連接耳機，然後在控制中心或「設定 → 藍牙」選擇輸出裝置。', true);
+        } else {
+          setDeviceHint('此瀏覽器不支援由網頁指定播放裝置。請使用系統音效設定選擇耳機或喇叭。', true);
+        }
+      } else {
+        outputDeviceSelect.disabled = false;
+        if (inputs.length === 0){
+          setDeviceHint('請按「開啟」並允許麥克風後，再重新整理裝置清單。', false);
+        } else {
+          setDeviceHint('切換收音裝置時，助聽器會短暫重新啟動；播放裝置會立即切換。', false);
+        }
+      }
+    }catch(err){
+      console.warn('Unable to enumerate audio devices', err);
+      setDeviceHint('無法取得裝置清單。請檢查 HTTPS 連線及麥克風權限。', true);
+    }
+  }
+
+  function buildAudioConstraints(){
+    const audio = {
+      echoCancellation: echoCancelToggle.checked,
+      noiseSuppression: false,
+      autoGainControl: false
+    };
+    if (selectedInputDeviceId) audio.deviceId = { exact: selectedInputDeviceId };
+    return { audio };
+  }
+
+  function checkSecureContext(){
+    const proto = location.protocol;
+    const host = location.hostname;
+    const isLocalhost = (host === 'localhost' || host === '127.0.0.1');
+    const isSecure = (proto === 'https:') || isLocalhost || proto === 'file:';
+    const hasAPI = !!(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function');
+
+    if (hasAPI && isSecure) return true;
+
+    let msg;
+    if (proto === 'file:'){
+      msg = '偵測到直接開啟本機檔案。部分 iOS 版本會封鎖此模式下的麥克風存取。請用 HTTPS 網址開啟。';
+    } else if (proto === 'http:' && !isLocalhost){
+      msg = '目前網址是不安全的 http，瀏覽器會封鎖麥克風存取。請改用 https:// 開頭的網址開啟。';
+    } else {
+      msg = '此瀏覽器目前無法使用麥克風功能。請確認使用 Safari 或 Chrome，且網址開頭是 https。';
+    }
+    setStatus(msg, 'err');
+    announce(msg);
+    return false;
+  }
+
+  async function startAudio(){
+    try{
+      setStatus('請求麥克風權限中，請稍候', '');
+      announce('正在請求麥克風權限，請稍候');
+
+      micStream = await navigator.mediaDevices.getUserMedia(buildAudioConstraints());
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+
+      if (navigator.audioSession){
+        try{ navigator.audioSession.type = 'play-and-record'; }catch(e){}
+      }
+
+      if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+      sourceNode = audioCtx.createMediaStreamSource(micStream);
+
+      lowShelf = audioCtx.createBiquadFilter();
+      lowShelf.type = 'lowshelf';
+      lowShelf.frequency.value = 300;
+      lowShelf.gain.value = 0;
+
+      midPeak = audioCtx.createBiquadFilter();
+      midPeak.type = 'peaking';
+      midPeak.frequency.value = 2000;
+      midPeak.Q.value = 1;
+      midPeak.gain.value = 0;
+
+      highShelf = audioCtx.createBiquadFilter();
+      highShelf.type = 'highshelf';
+      highShelf.frequency.value = 4000;
+      highShelf.gain.value = 0;
+
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = parseFloat(gainSlider.value);
+
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      sourceNode.connect(lowShelf);
+      lowShelf.connect(midPeak);
+      midPeak.connect(highShelf);
+      highShelf.connect(gainNode);
+      gainNode.connect(analyser);
+      analyser.connect(audioCtx.destination);
+
+      if (selectedOutputDeviceId && hasOutputSelectionSupport()){
+        await audioCtx.setSinkId(selectedOutputDeviceId);
+      }
+
+      applyPreset(currentPreset, false);
+      running = true;
+      powerBtn.classList.add('on');
+      powerBtn.setAttribute('aria-checked', 'true');
+      powerBtn.setAttribute('aria-label', '關閉助聽器放大功能，目前狀態：開啟');
+      powerLabel.textContent = '關閉';
+      setStatus('運作中，正在放大您週遭的聲音', 'ok');
+      announce('助聽器已開啟，正在放大聲音');
+      updateMeter();
+      await refreshDeviceLists();
+
+      micStream.getAudioTracks()[0].addEventListener('ended', () => {
+        if (running){
+          setStatus('麥克風連線中斷，請按重新開啟', 'err');
+          announce('麥克風連線中斷，請重新按開關按鈕');
+          stopAudio(false);
+        }
+      });
+    }catch(err){
+      console.error(err);
+      let msg = err.message || err.name || String(err);
+      if (err.name === 'NotAllowedError'){
+        msg = '未取得麥克風權限。請到瀏覽器設定允許麥克風存取後再試一次。';
+      } else if (err.name === 'NotFoundError'){
+        msg = '找不到所選的麥克風裝置。請選擇系統預設麥克風後重試。';
+      } else if (err.name === 'OverconstrainedError'){
+        msg = '所選麥克風無法使用。請改選系統預設麥克風後重試。';
+      }
+      setStatus('無法啟動：' + msg, 'err');
+      announce('無法啟動助聽器：' + msg);
+      running = false;
+      powerBtn.classList.remove('on');
+      powerBtn.setAttribute('aria-checked', 'false');
+      powerBtn.setAttribute('aria-label', '開啟助聽器放大功能，目前狀態：關閉');
+      powerLabel.textContent = '開啟';
+    }
+  }
+
+  function stopAudio(announceStop = true){
+    running = false;
+    if (meterRAF) cancelAnimationFrame(meterRAF);
+    meterFill.style.width = '0%';
+    meterBar.setAttribute('aria-valuenow', '0');
+    if (micStream){
+      micStream.getTracks().forEach(t => t.stop());
+      micStream = null;
+    }
+    if (audioCtx){
+      audioCtx.close();
+      audioCtx = null;
+    }
+    powerBtn.classList.remove('on');
+    powerBtn.setAttribute('aria-checked', 'false');
+    powerBtn.setAttribute('aria-label', '開啟助聽器放大功能，目前狀態：關閉');
+    powerLabel.textContent = '開啟';
+    if (announceStop){
+      setStatus('已關閉，請按上方按鈕重新開始', '');
+      announce('助聽器已關閉');
+    }
+  }
+
+  function updateMeter(){
+    if (!running || !analyser) return;
+    analyser.getByteFrequencyData(dataArray);
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+    const avg = sum / dataArray.length;
+    const pct = Math.min(100, (avg / 180) * 100);
+    meterFill.style.width = pct + '%';
+    const roundedPct = Math.round(pct);
+    if (Math.abs(roundedPct - lastAnnouncedPct) >= 20){
+      meterBar.setAttribute('aria-valuenow', String(roundedPct));
+      lastAnnouncedPct = roundedPct;
+    }
+    meterRAF = requestAnimationFrame(updateMeter);
+  }
+
+  powerBtn.addEventListener('click', () => {
+    if (running){ stopAudio(); return; }
+    if (!checkSecureContext()) return;
+    startAudio();
+  });
+
+  function setGain(v, announceIt){
+    v = Math.min(6, Math.max(1, Math.round(v * 10) / 10));
+    gainSlider.value = v;
+    gainVal.textContent = v.toFixed(1) + 'x';
+    gainSlider.setAttribute('aria-valuenow', String(v));
+    gainSlider.setAttribute('aria-valuetext', v.toFixed(1) + ' 倍');
+    if (gainNode) gainNode.gain.setTargetAtTime(v, audioCtx.currentTime, 0.02);
+    if (announceIt) announce('放大倍數 ' + v.toFixed(1) + ' 倍');
+  }
+
+  gainSlider.addEventListener('input', () => setGain(parseFloat(gainSlider.value), true));
+  gainUp.addEventListener('click', () => setGain(parseFloat(gainSlider.value) + 0.5, true));
+  gainDown.addEventListener('click', () => setGain(parseFloat(gainSlider.value) - 0.5, true));
+  setGain(parseFloat(gainSlider.value), false);
+
+  function applyPreset(name, doAnnounce){
+    currentPreset = name;
+    const presetNames = {flat:'一般', speech:'對話增強', high:'高頻加強'};
+    presetBtns.forEach(b => {
+      const isActive = b.dataset.preset === name;
+      b.classList.toggle('active', isActive);
+      b.setAttribute('aria-checked', isActive ? 'true' : 'false');
+    });
+    if (doAnnounce !== false) announce('已切換至' + presetNames[name] + '模式');
+    if (!lowShelf) return;
+    const t = audioCtx.currentTime;
+    if (name === 'flat'){
+      lowShelf.gain.setTargetAtTime(0, t, 0.05);
+      midPeak.gain.setTargetAtTime(0, t, 0.05);
+      highShelf.gain.setTargetAtTime(0, t, 0.05);
+    } else if (name === 'speech'){
+      lowShelf.gain.setTargetAtTime(-4, t, 0.05);
+      midPeak.gain.setTargetAtTime(8, t, 0.05);
+      highShelf.gain.setTargetAtTime(3, t, 0.05);
+    } else if (name === 'high'){
+      lowShelf.gain.setTargetAtTime(-2, t, 0.05);
+      midPeak.gain.setTargetAtTime(4, t, 0.05);
+      highShelf.gain.setTargetAtTime(9, t, 0.05);
+    }
+  }
+
+  presetBtns.forEach((btn, idx) => {
+    btn.addEventListener('click', () => applyPreset(btn.dataset.preset, true));
+    btn.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown'){
+        e.preventDefault();
+        const next = presetBtns[(idx + 1) % presetBtns.length];
+        next.focus(); next.click();
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp'){
+        e.preventDefault();
+        const prev = presetBtns[(idx - 1 + presetBtns.length) % presetBtns.length];
+        prev.focus(); prev.click();
+      }
+    });
+  });
+
+  noiseGateToggle.addEventListener('change', () => {
+    const on = noiseGateToggle.checked;
+    noiseGateState.textContent = '目前：' + (on ? '開啟' : '關閉');
+    announce(on ? '降噪已開啟' : '降噪已關閉');
+    if (!lowShelf) return;
+    const t = audioCtx.currentTime;
+    if (on){
+      lowShelf.frequency.setTargetAtTime(500, t, 0.05);
+      lowShelf.gain.setTargetAtTime((lowShelf.gain.value < -6 ? lowShelf.gain.value : -10), t, 0.05);
+    } else {
+      applyPreset(currentPreset, false);
+    }
+  });
+
+  echoCancelToggle.addEventListener('change', () => {
+    const on = echoCancelToggle.checked;
+    echoCancelState.textContent = '目前：' + (on ? '開啟' : '關閉');
+    announce((on ? '回音抑制已開啟' : '回音抑制已關閉') + '，正在重新啟動');
+    if (running){
+      setStatus('設定已變更，正在重新啟動', '');
+      stopAudio(false);
+      setTimeout(startAudio, 300);
+    }
+  });
+
+  inputDeviceSelect.addEventListener('change', () => {
+    selectedInputDeviceId = inputDeviceSelect.value;
+    const label = inputDeviceSelect.selectedOptions[0]?.textContent || '系統預設麥克風';
+    if (!running){
+      setDeviceHint('已選擇收音裝置：' + label + '。按「開啟」後生效。', false);
+      announce('已選擇收音裝置：' + label);
+      return;
+    }
+    setDeviceHint('正在切換收音裝置…', false);
+    setStatus('正在切換收音裝置…', '');
+    announce('正在切換收音裝置：' + label);
+    stopAudio(false);
+    setTimeout(startAudio, 300);
+  });
+
+  outputDeviceSelect.addEventListener('change', async () => {
+    selectedOutputDeviceId = outputDeviceSelect.value;
+    const label = outputDeviceSelect.selectedOptions[0]?.textContent || '系統預設輸出';
+    if (!hasOutputSelectionSupport()){
+      setDeviceHint('此瀏覽器不支援由網頁切換播放裝置。請使用系統設定。', true);
+      return;
+    }
+    if (!audioCtx){
+      setDeviceHint('已選擇播放裝置：' + label + '。按「開啟」後生效。', false);
+      announce('已選擇播放裝置：' + label);
+      return;
+    }
+    try{
+      await audioCtx.setSinkId(selectedOutputDeviceId);
+      setDeviceHint('播放裝置已切換為：' + label, false);
+      announce('播放裝置已切換為：' + label);
+    }catch(err){
+      console.warn('Unable to switch sink', err);
+      setDeviceHint('無法切換播放裝置。請確認耳機已連線並允許瀏覽器使用。', true);
+      announce('無法切換播放裝置');
+    }
+  });
+
+  refreshDevicesBtn.addEventListener('click', async () => {
+    await refreshDeviceLists();
+    announce('裝置清單已重新整理');
+  });
+
+  if (navigator.mediaDevices && typeof navigator.mediaDevices.addEventListener === 'function'){
+    navigator.mediaDevices.addEventListener('devicechange', refreshDeviceLists);
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && running && audioCtx && audioCtx.state === 'suspended'){
+      audioCtx.resume().catch(()=>{});
+    }
+  });
+
+  envBox.textContent = '目前網址協定：' + location.protocol + '//' + location.host + '  (麥克風 API ' +
+    (navigator.mediaDevices ? '可用' : '不可用') + ')';
+
+  if (isIOS){
+    iosNote.style.display = 'block';
+  }
+
+  if (!hasOutputSelectionSupport()){
+    outputDeviceSelect.disabled = true;
+  }
+
+  refreshDeviceLists();
+})();
+</script>
+</body>
+</html>
